@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Firebase Auth & Upload</title>
+</head>
+<body>
+<div id="auth-container">
+    <input type="email" id="email" placeholder="Email"><br>
+    <input type="password" id="password" placeholder="Password"><br>
+    <button onclick="login()">Login</button>
+</div>
+
+<div id="upload-container" style="display: none;">
+    <p>Files Uploaded: <span id="file-count">0</span></p>
+    <input type="file" id="file-input"><br>
+    <button onclick="uploadFile()">Upload</button>
+    <button onclick="logout()">Logout</button>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+
+<script>
+    // *** IMPORTANT: Replace with your actual Firebase config ***
+    const firebaseConfig = {
+        apiKey: "YOUR_API_KEY",
+        authDomain: "YOUR_AUTH_DOMAIN",
+        projectId: "YOUR_PROJECT_ID",
+        storageBucket: "YOUR_STORAGE_BUCKET",
+        messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+        appId: "YOUR_APP_ID",
+        measurementId: "YOUR_MEASUREMENT_ID"
+    };
+    firebase.initializeApp(firebaseConfig);
+
+    const authContainer = document.getElementById('auth-container');
+    const uploadContainer = document.getElementById('upload-container');
+    const fileCountDisplay = document.getElementById('file-count');
+
+    function login() {
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+
+        firebase.auth().signInWithEmailAndPassword(email, password)
+            .then((userCredential) => {
+                authContainer.style.display = 'none';
+                uploadContainer.style.display = 'block';
+                getFileCount();
+            })
+            .catch((error) => {
+                alert('Login failed: ' + error.message);
+            });
+    }
+
+    function logout() {
+        firebase.auth().signOut().then(() => {
+            uploadContainer.style.display = 'none';
+            authContainer.style.display = 'block';
+            fileCountDisplay.textContent = 0;
+        });
+    }
+
+    async function uploadFile() {
+        const fileInput = document.getElementById('file-input');
+        const file = fileInput.files[0];
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const token = await firebase.auth().currentUser.getIdToken();
+
+        fetch('/upload', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            },
+            body: formData
+        })
+            .then(response => response.text())
+            .then(data => {
+                alert(data);
+                getFileCount();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Upload failed.');
+            });
+    }
+
+    async function getFileCount() {
+        const token = await firebase.auth().currentUser.getIdToken();
+
+        fetch('/myfiles', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        })
+            .then(response => response.text())
+            .then(data => {
+                const count = (data.match(/<li>/g) || []).length;
+                fileCountDisplay.textContent = count;
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to get file count.');
+            });
+    }
+</script>
+</body>
+</html>
